@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>马里奥贪吃蛇 - 单人闯关版</title>
+    <style>
+        :root {
+            --mario-red: #E52521;
+            --sky-blue: #5C94FC;
+            --ground-brown: #924500;
+            --coin-yellow: #FBD000;
+            --text-white: #FFFFFF;
+            --pipe-green: #43B047;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--sky-blue);
+            background-image: radial-gradient(circle at 20% 30%, white 20px, transparent 20px),
+                              radial-gradient(circle at 80% 15%, white 15px, transparent 15px);
+            color: var(--text-white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .retro-panel {
+            background: #F8F8F8;
+            border: 6px solid #000;
+            box-shadow: 8px 8px 0px rgba(0,0,0,0.2);
+            image-rendering: pixelated;
+        }
+
+        #startScreen {
+            position: absolute;
+            z-index: 100;
+            padding: 40px;
+            text-align: center;
+            width: 440px;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.2rem;
+            color: var(--mario-red);
+            text-shadow: 4px 4px 0px #000;
+            -webkit-text-stroke: 1px #fff;
+        }
+
+        .mode-hint {
+            font-weight: 900;
+            font-size: 0.9rem;
+            color: #555;
+            background: var(--coin-yellow);
+            display: inline-block;
+            padding: 2px 10px;
+            border: 2px solid #000;
+            margin-bottom: 2rem;
+            transform: rotate(-1deg);
+        }
+
+        .input-group {
+            margin-bottom: 1.2rem;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.95rem;
+            color: #000;
+            margin-bottom: 8px;
+            font-weight: 900;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 4px solid #000;
+            font-size: 1.1rem;
+            font-weight: bold;
+            outline: none;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .input-group input:focus { border-color: var(--sky-blue); background: #fff; }
+
+        .input-group input.invalid {
+            border-color: var(--mario-red);
+            background: #ffdada;
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        .speed-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .speed-btn {
+            flex: 1;
+            padding: 12px;
+            border: 4px solid #000;
+            background: #DDD;
+            cursor: pointer;
+            font-weight: 900;
+        }
+
+        .speed-btn.active {
+            background: var(--coin-yellow);
+            transform: translateY(-4px);
+            box-shadow: 0 4px 0 #000;
+        }
+
+        #startBtn {
+            width: 100%;
+            margin-top: 20px;
+            padding: 18px;
+            border: 4px solid #000;
+            background: var(--pipe-green);
+            color: white;
+            font-weight: 900;
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: 0 6px 0 #1b5e20;
+        }
+
+        #gameScreen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #uiHeader {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background: rgba(0,0,0,0.8);
+            border-bottom: 4px solid #000;
+            min-width: 600px;
+        }
+
+        .score-container {
+            display: flex;
+            gap: 30px;
+        }
+
+        .score-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .score-label {
+            font-size: 0.8rem;
+            color: var(--coin-yellow);
+            font-weight: 900;
+        }
+
+        .score-val {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #fff;
+        }
+
+        #canvasContainer {
+            padding: 10px;
+            background: var(--ground-brown);
+            border: 6px solid #000;
+            margin-top: 10px;
+        }
+
+        canvas {
+            display: block;
+            background: #fff;
+            image-rendering: pixelated;
+        }
+
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            padding: 40px;
+            width: 420px;
+            text-align: center;
+            color: #000;
+        }
+
+        #restartBtn {
+            width: 100%;
+            padding: 16px;
+            border: 4px solid #000;
+            background: var(--sky-blue);
+            color: white;
+            font-weight: 900;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="startScreen" class="retro-panel">
+        <h1>MARIO SNAKE</h1>
+        <div class="mode-hint">SINGLE PLAYER MODE</div>
+        
+        <div class="input-group">
+            <label>玩家昵称 (必填)</label>
+            <input type="text" id="pNameInput" placeholder="请输入你的大名" maxlength="10">
+        </div>
+
+        <div class="input-group">
+            <label>关卡选择</label>
+            <div class="speed-buttons">
+                <button class="speed-btn" data-speed="1">1-1</button>
+                <button class="speed-btn active" data-speed="3">1-2</button>
+                <button class="speed-btn" data-speed="5">8-4</button>
+            </div>
+        </div>
+        <button id="startBtn">开始挑战</button>
+    </div>
+
+    <div id="gameScreen">
+        <div id="uiHeader">
+            <div class="score-item">
+                <span class="score-label">PLAYER</span>
+                <span class="score-val" id="displayName">MARIO</span>
+            </div>
+            <div class="score-container">
+                <div class="score-item">
+                    <span class="score-label">SCORE</span>
+                    <span class="score-val" id="currentScore">000</span>
+                </div>
+                <div class="score-item">
+                    <span class="score-label">HI-SCORE</span>
+                    <span class="score-val" id="bestScore">000</span>
+                </div>
+            </div>
+        </div>
+        <div id="canvasContainer">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+    </div>
+
+    <div id="gameOver" class="retro-panel">
+        <h2 style="color:var(--mario-red); margin-bottom:10px; font-size: 2rem;">GAME OVER</h2>
+        <p style="margin-bottom: 25px; font-weight: 900; font-size: 1.1rem;" id="resultDesc"></p>
+        <button id="restartBtn">再次尝试</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const COLS = 44; 
+        const ROWS = 28;
+        let gridSize = 0;
+        let gameLoop = null;
+        
+        let score = 0;
+        let hiScore = localStorage.getItem('snakeHiScore_v2') || 0;
+        
+        let initialSpeedLevel = 3;
+        let currentInterval = 0;
+        const speedMap = [0, 220, 180, 140, 110, 80]; 
+
+        let snake = { alive: false, body: [] };
+        let foods = [];
+        let particles = [];
+        let audioCtx = null;
+
+        // 音效系统
+        function playCollectSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); 
+            osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playDeathSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function resizeCanvas() {
+            const padding = 160;
+            const availableW = window.innerWidth - padding;
+            const availableH = window.innerHeight - padding - 120;
+            gridSize = Math.floor(Math.min(availableW / COLS, availableH / ROWS));
+            if (gridSize < 18) gridSize = 18;
+            canvas.width = COLS * gridSize;
+            canvas.height = ROWS * gridSize;
+        }
+
+        document.querySelectorAll('.speed-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                initialSpeedLevel = parseInt(btn.dataset.speed);
+            });
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            const nameInput = document.getElementById('pNameInput');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                nameInput.classList.add('invalid');
+                nameInput.placeholder = "请先输入昵称！";
+                setTimeout(() => nameInput.classList.remove('invalid'), 400);
+                return;
+            }
+
+            document.getElementById('displayName').textContent = name.toUpperCase();
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameScreen').style.display = 'flex';
+            document.getElementById('bestScore').textContent = String(hiScore).padStart(3, '0');
+            resizeCanvas();
+            resetGame();
+        });
+
+        function resetGame() {
+            score = 0;
+            currentInterval = speedMap[initialSpeedLevel];
+            snake = {
+                body: [{x: 5, y: Math.floor(ROWS/2)}, {x: 4, y: Math.floor(ROWS/2)}, {x: 3, y: Math.floor(ROWS/2)}],
+                dir: {x: 1, y: 0}, nextDir: {x: 1, y: 0},
+                color: '#E52521', alive: true
+            };
+            foods = [];
+            for(let i=0; i<3; i++) spawnFood();
+            updateUI();
+            startLoop();
+        }
+
+        function startLoop() {
+            if(gameLoop) clearInterval(gameLoop);
+            gameLoop = setInterval(update, currentInterval);
+        }
+
+        function spawnFood() {
+            let newFood;
+            while(true) {
+                newFood = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS), color: '#FBD000' };
+                if(!snake.body.some(b => b.x === newFood.x && b.y === newFood.y)) break;
+            }
+            foods.push(newFood);
+        }
+
+        function update() {
+            snake.dir = snake.nextDir;
+            let nextH = {x: snake.body[0].x + snake.dir.x, y: snake.body[0].y + snake.dir.y};
+
+            if (nextH.x < 0 || nextH.x >= COLS || nextH.y < 0 || nextH.y >= ROWS || 
+                snake.body.some(b => b.x === nextH.x && b.y === nextH.y)) {
+                snake.alive = false;
+                playDeathSound();
+                endGame();
+                return;
+            }
+
+            snake.body.unshift(nextH);
+            let ate = false;
+            foods.forEach((f, i) => {
+                if(f.x === nextH.x && f.y === nextH.y) {
+                    ate = true;
+                    score += 1; // 1分规则
+                    foods.splice(i, 1);
+                    spawnFood();
+                    playCollectSound();
+                    
+                    if(currentInterval > 60) {
+                        currentInterval -= 1;
+                        startLoop();
+                    }
+
+                    for(let j=0; j<8; j++) particles.push({
+                        x: (f.x+0.5)*gridSize, y: (f.y+0.5)*gridSize,
+                        vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6,
+                        life: 1, color: f.color
+                    });
+                }
+            });
+            if (!ate) snake.body.pop();
+
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.04; });
+
+            draw();
+            updateUI();
+        }
+
+        function updateUI() {
+            document.getElementById('currentScore').textContent = String(score).padStart(3, '0');
+            if(score > hiScore) {
+                hiScore = score;
+                localStorage.setItem('snakeHiScore_v2', hiScore);
+                document.getElementById('bestScore').textContent = String(hiScore).padStart(3, '0');
+            }
+        }
+
+        function endGame() {
+            clearInterval(gameLoop);
+            document.getElementById('resultDesc').innerHTML = `本局得分: <span style="color:var(--mario-red)">${score}</span><br>历史最高: ${hiScore}`;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function draw() {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#F0F0F0';
+            ctx.lineWidth = 1;
+            for(let i=0; i<=COLS; i++) { ctx.beginPath(); ctx.moveTo(i*gridSize, 0); ctx.lineTo(i*gridSize, canvas.height); ctx.stroke(); }
+            for(let i=0; i<=ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i*gridSize); ctx.lineTo(canvas.width, i*gridSize); ctx.stroke(); }
+
+            foods.forEach(f => {
+                ctx.fillStyle = f.color;
+                ctx.beginPath(); ctx.arc((f.x+0.5)*gridSize, (f.y+0.5)*gridSize, gridSize/2 - 2, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.stroke();
+            });
+
+            snake.body.forEach((b, i) => {
+                ctx.fillStyle = snake.color;
+                ctx.strokeStyle = '#000';
+                if (i === 0) {
+                    ctx.fillRect(b.x*gridSize, b.y*gridSize, gridSize, gridSize);
+                    ctx.strokeRect(b.x*gridSize, b.y*gridSize, gridSize, gridSize);
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(b.x*gridSize+gridSize*0.2, b.y*gridSize+gridSize*0.2, gridSize*0.2, gridSize*0.2);
+                    ctx.fillRect(b.x*gridSize+gridSize*0.6, b.y*gridSize+gridSize*0.2, gridSize*0.2, gridSize*0.2);
+                } else {
+                    ctx.globalAlpha = 1.0 - (i / snake.body.length) * 0.6;
+                    ctx.fillRect(b.x*gridSize+2, b.y*gridSize+2, gridSize-4, gridSize-4);
+                }
+            });
+            ctx.globalAlpha = 1;
+
+            particles.forEach(p => { 
+                ctx.globalAlpha = p.life; 
+                ctx.fillStyle = p.color; 
+                ctx.fillRect(p.x, p.y, 4, 4); 
+            });
+            ctx.globalAlpha = 1;
+        }
+
+        window.addEventListener('keydown', e => {
+            const key = e.key.toLowerCase();
+            if((key === 'w' || key === 'arrowup') && snake.dir.y === 0) snake.nextDir = {x:0, y:-1};
+            if((key === 's' || key === 'arrowdown') && snake.dir.y === 0) snake.nextDir = {x:0, y:1};
+            if((key === 'a' || key === 'arrowleft') && snake.dir.x === 0) snake.nextDir = {x:-1, y:0};
+            if((key === 'd' || key === 'arrowright') && snake.dir.x === 0) snake.nextDir = {x:1, y:0};
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            document.getElementById('gameOver').style.display = 'none';
+            resetGame();
+        });
+
+        window.addEventListener('resize', () => {
+            if (document.getElementById('gameScreen').style.display === 'flex') {
+                resizeCanvas();
+                draw();
+            }
+        });
+    </script>
+</body>
+</html>
